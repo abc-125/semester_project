@@ -1,7 +1,10 @@
 from detectron2.data import detection_utils as utils
 from detectron2.data import build_detection_train_loader, build_detection_test_loader
 from detectron2.engine import DefaultTrainer
+from detectron2.modeling import build_model
+from detectron2.checkpoint import DetectionCheckpointer
 
+import logging
 import numpy as np
 import copy
 import torch
@@ -31,7 +34,8 @@ def input_fusion_mapper(dataset_dict):
     }
 
 class InputFusionTrainer(DefaultTrainer):
-    '''Rewrites build_detection_test_loader and build_train_loader with custom mapper'''
+    '''Rewrites build_detection_test_loader and build_train_loader with custom mapper,
+    loads weigths from 3 channel model into 4 channel model'''
     
     @classmethod
     def build_train_loader(cls, cfg):
@@ -40,3 +44,26 @@ class InputFusionTrainer(DefaultTrainer):
     @classmethod
     def build_test_loader(cls, cfg, dataset_name):
         return build_detection_test_loader(cfg, dataset_name, mapper=input_fusion_mapper)
+
+    @classmethod
+    def build_model(cls, cfg):
+        model = build_model(cfg)
+
+        # use pretrained 3-channel weights for 4-channel model:
+        cfg2 = cfg.clone()
+        cfg2.MODEL.PIXEL_MEAN = [103.530, 116.280, 123.675]  # Default values are the mean pixel value from ImageNet
+        cfg2.MODEL.PIXEL_STD = [1.0, 1.0, 1.0]  # std has been absorbed into its conv1 weights, so the std needs to be set 1
+        model2 = build_model(cfg2)
+        DetectionCheckpointer(model2).load(cfg2.MODEL.WEIGHTS)  # load weights into model
+
+        with torch.no_grad():
+            conv1_weight = model2.backbone.bottom_up.stem.conv1.weight
+            model.backbone.bottom_up.stem.conv1.weight[:, 3] = torch.mean(conv1_weight[:, :3], dim=1)
+            model.backbone.bottom_up.stem.conv1.weight[:, :3] = conv1_weight[:, :3]
+
+        print("backbone.bottom_up.stem.conv1.weight is loaded, shape is (64, 4, 7, 7)")
+
+        logger = logging.getLogger(__name__)
+        logger.info("Model:\n{}".format(model))
+
+        return model
