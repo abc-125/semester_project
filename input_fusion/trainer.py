@@ -13,12 +13,12 @@ import torch
 def input_fusion_mapper(dataset_dict):
     dataset_dict = copy.deepcopy(dataset_dict) 
         
-    # read thermal and rgb images:
-    image_rbg = utils.read_image(dataset_dict["file_name_rgb"], format="RGB")
+    # read rgb and thermal images:
+    image_rgb = utils.read_image(dataset_dict["file_name_rgb"], format="RGB")
     image_t = utils.read_image(dataset_dict["file_name_t"], format="L")
 
     # merge it to one 4 channel image:
-    image = np.dstack((image_rbg[:,:,2], image_rbg[:,:,1], image_rbg[:,:,0], image_t))
+    image = np.dstack((image_rgb[:,:,2], image_rgb[:,:,1], image_rgb[:,:,0], image_t))
         
     image = torch.from_numpy(image.transpose(2, 0, 1).astype("float32"))
 
