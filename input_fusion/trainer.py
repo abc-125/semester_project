@@ -3,11 +3,13 @@ from detectron2.data import build_detection_train_loader, build_detection_test_l
 from detectron2.engine import DefaultTrainer
 from detectron2.modeling import build_model
 from detectron2.checkpoint import DetectionCheckpointer
+from detectron2.evaluation import COCOEvaluator
 
 import logging
 import numpy as np
 import copy
 import torch
+import os
 
 
 def input_fusion_mapper(dataset_dict):
@@ -35,7 +37,13 @@ def input_fusion_mapper(dataset_dict):
 
 class InputFusionTrainer(DefaultTrainer):
     '''Rewrites build_detection_test_loader and build_train_loader with custom mapper,
-    loads weigths from 3 channel model into 4 channel model'''
+    loads weigths from 3 channel model into 4 channel model. Uses COCOEvaluator while training.'''
+
+    @classmethod
+    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
+        if output_folder is None:
+            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+        return COCOEvaluator(dataset_name, cfg, True, output_folder)
     
     @classmethod
     def build_train_loader(cls, cfg):

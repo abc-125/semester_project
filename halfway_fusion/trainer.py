@@ -1,9 +1,11 @@
 from detectron2.data import detection_utils as utils
 from detectron2.data import build_detection_train_loader, build_detection_test_loader
 from detectron2.engine import DefaultTrainer
+from detectron2.evaluation import COCOEvaluator
 
 import copy
 import torch
+import os
 
 
 def halfway_fusion_mapper(dataset_dict):
@@ -30,7 +32,13 @@ def halfway_fusion_mapper(dataset_dict):
 
 
 class HalfwayFusionTrainer(DefaultTrainer):
-    '''Rewrites build_detection_test_loader and build_train_loader with my mapper'''
+    '''Rewrites build_detection_test_loader and build_train_loader with my mapper. Uses COCOEvaluator while training.'''
+
+    @classmethod
+    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
+        if output_folder is None:
+            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+        return COCOEvaluator(dataset_name, cfg, True, output_folder)
     
     @classmethod
     def build_train_loader(cls, cfg):
